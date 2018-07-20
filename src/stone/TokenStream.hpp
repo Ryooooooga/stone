@@ -22,48 +22,59 @@
  * SOFTWARE.
 ================================================================================*/
 
-#include "stone/Node.hpp"
-#include "stone/TokenStream.hpp"
+#pragma once
 
-#include <boost/type_index.hpp>
-#include <fmt/ostream.h>
+#include <cassert>
+#include <deque>
 
-int main()
+#include "Lexer.hpp"
+
+namespace stone
 {
-	try
+	class TokenStream
 	{
-		auto lexer = std::make_unique<stone::Lexer>(u8R"(
-			even = 0
-			odd = 0
-			i = 1
-			while i < 10 {
-				if i % 2 == 0 { // even number?
-					even = even + 1
-				} else {
-					odd = odd + 1
-				}
-				i = i + 1
-			}
-			even + odd
-		)");
-
-		auto stream = std::make_unique<stone::TokenStream>(std::move(lexer));
-
-		while (true)
+	public:
+		explicit TokenStream(std::unique_ptr<Lexer>&& lexer)
+			: m_lexer(std::move(lexer))
 		{
-			const auto token = stream->read();
-			fmt::print(u8"{}:`{}':`{}':{}:`{}'\n", token->lineNumber(), token->kind(), token->text(), token->integerValue(), token->stringValue());
-			if (token->kind() == stone::TokenKind::endOfFile) break;
+			assert(m_lexer);
 		}
-	}
-	catch (const std::exception& e)
-	{
-		fmt::print(
-			stderr,
-			u8"*** exception caught ***\n"
-			u8"type: {}\n"
-			u8"what: {}\n",
-			boost::typeindex::type_id_runtime(e).pretty_name(),
-			e.what());
-	}
+
+		// Uncopyable, unmovable.
+		TokenStream(const TokenStream&) =delete;
+		TokenStream(TokenStream&&) =delete;
+
+		TokenStream& operator=(const TokenStream&) =delete;
+		TokenStream& operator=(TokenStream&&) =delete;
+
+		~TokenStream() =default;
+
+		std::shared_ptr<Token> read()
+		{
+			auto token = peek(0);
+			m_queue.pop_front();
+
+			return token;
+		}
+
+		[[nodiscard]]
+		std::shared_ptr<Token> peek(std::size_t position)
+		{
+			fillQueue(position + 1);
+
+			return m_queue[position];
+		}
+
+		void fillQueue(std::size_t amount)
+		{
+			while (m_queue.size() < amount)
+			{
+				m_queue.emplace_back(m_lexer->read());
+			}
+		}
+
+	private:
+		std::unique_ptr<Lexer> m_lexer;
+		std::deque<std::shared_ptr<Token>> m_queue;
+	};
 }
