@@ -22,45 +22,37 @@
  * SOFTWARE.
 ================================================================================*/
 
-#include "stone/Lexer.hpp"
+#pragma once
 
-#include <boost/type_index.hpp>
+#include <stdexcept>
+
 #include <fmt/ostream.h>
 
-int main()
+namespace stone
 {
-	try
+	class StoneException
+		: public std::runtime_error
 	{
-		auto lexer = std::make_unique<stone::Lexer>(u8R"(
-			even = 0
-			odd = 0
-			i = 1
-			while i < 10 {
-				if i % 2 == 0 { // even number?
-					even = even + 1
-				} else {
-					odd = odd + 1
-				}
-				i = i + 1
-			}
-			even + odd
-		)");
-
-		while (true)
+	public:
+		explicit StoneException(std::size_t line, std::string_view description)
+			: runtime_error(fmt::format(u8"error at line {}: {}", line, description))
 		{
-			const auto token = lexer->read();
-			fmt::print(u8"{}:`{}':`{}':{}:`{}'\n", token->lineNumber(), token->kind(), token->text(), token->integerValue(), token->stringValue());
-			if (token->kind() == stone::TokenKind::endOfFile) break;
 		}
-	}
-	catch (const std::exception& e)
+
+		// Uncopyable, movable.
+		StoneException(const StoneException&) =delete;
+		StoneException(StoneException&&) =default;
+
+		StoneException& operator=(const StoneException&) =delete;
+		StoneException& operator=(StoneException&&) =default;
+
+		~StoneException() =default;
+	};
+
+	class ParseException
+		: public StoneException
 	{
-		fmt::print(
-			stderr,
-			u8"*** exception caught ***\n"
-			u8"type: {}\n"
-			u8"what: {}\n",
-			boost::typeindex::type_id_runtime(e).pretty_name(),
-			e.what());
-	}
+	public:
+		using StoneException::StoneException;
+	};
 }
