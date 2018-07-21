@@ -328,6 +328,26 @@ namespace stone
 		int m_value;
 	};
 
+	class StringExpressionNode
+		: public ExpressionNode
+	{
+	public:
+		explicit StringExpressionNode(std::size_t lineNumber, std::string_view value)
+			: ExpressionNode(lineNumber)
+			, m_value(value)
+		{
+		}
+
+		[[nodiscard]]
+		std::string_view value() const noexcept
+		{
+			return m_value;
+		}
+
+	private:
+		std::string m_value;
+	};
+
 	class Printer
 	{
 	public:

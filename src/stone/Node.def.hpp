@@ -52,6 +52,7 @@ STONE_EXPRESSION_NODE(BinaryExpressionNode, ("{name} {operator}", u8"operator"_a
 STONE_EXPRESSION_NODE(UnaryExpressionNode, ("{name} {operator}", u8"operator"_a=this->operation()))
 STONE_EXPRESSION_NODE(IdentifierExpressionNode, ("{name} {text}", u8"text"_a=this->name()))
 STONE_EXPRESSION_NODE(IntegerExpressionNode, ("{name} {value}", u8"value"_a=this->value()))
+STONE_EXPRESSION_NODE(StringExpressionNode, ("{name} {value}", u8"value"_a=this->value()))
 
 STONE_BINARY_OPERATOR(addition, "+")
 STONE_BINARY_OPERATOR(subtraction, "-")

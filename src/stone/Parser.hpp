@@ -328,6 +328,7 @@ namespace stone
 		//     paren-expression
 		//     identifier-expression
 		//     integer-expression
+		//     string-expression
 		[[nodiscard]]
 		std::unique_ptr<ExpressionNode> parsePrimaryExpression()
 		{
@@ -344,6 +345,10 @@ namespace stone
 				case TokenKind::integer:
 					// integer-expression
 					return parseIntegerExpression();
+
+				case TokenKind::string:
+					// string-expression
+					return parseStringExpression();
 
 				default:
 					throw ParseException { token->lineNumber(), fmt::format(u8"unexpected token `{}', expected expression.", token->text()) };
@@ -387,6 +392,17 @@ namespace stone
 			const auto token = matchToken(TokenKind::integer);
 
 			return std::make_unique<IntegerExpressionNode>(token->lineNumber(), token->integerValue());
+		}
+
+		// string-expression:
+		//     string
+		[[nodiscard]]
+		std::unique_ptr<ExpressionNode> parseStringExpression()
+		{
+			// string
+			const auto token = matchToken(TokenKind::string);
+
+			return std::make_unique<StringExpressionNode>(token->lineNumber(), token->stringValue());
 		}
 
 		std::unique_ptr<TokenStream> m_stream;

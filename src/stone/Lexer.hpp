@@ -143,6 +143,49 @@ namespace stone
 				return std::make_unique<Token>(TokenKind::integer, text, m_line, value);
 			}
 
+			// String literal.
+			if (m_source[m_pos] == u8'\"')
+			{
+				std::string value;
+
+				// \"
+				m_pos++;
+
+				while (m_source[m_pos] != u8'\"')
+				{
+					if (m_source[m_pos] == u8'\\')
+					{
+						m_pos++;
+
+						if (m_source[m_pos] == u8'\\')
+						{
+							value += u8'\\';
+						}
+						else if (m_source[m_pos] == u8'\"')
+						{
+							value += u8'\"';
+						}
+						else
+						{
+							throw ParseException { m_line, u8"unknown escape sequence." };
+						}
+					}
+					else
+					{
+						value += m_source[m_pos];
+					}
+
+					m_pos++;
+				}
+
+				// \"
+				m_pos++;
+
+				const auto text = m_source.substr(start, m_pos - start);
+
+				return std::make_unique<Token>(TokenKind::string, text, m_line, value);
+			}
+
 			// Punctuator.
 			static const auto punctuators = boost::container::flat_map<std::string_view, TokenKind, std::greater<>>
 			{
