@@ -22,6 +22,7 @@
  * SOFTWARE.
 ================================================================================*/
 
+#include "stone/Interpreter.hpp"
 #include "stone/Parser.hpp"
 
 #include <iostream>
@@ -53,6 +54,8 @@ int main()
 		const auto ast = parser->parse();
 
 		stone::Printer {std::cout}.print(*ast);
+
+		fmt::print(u8"result: {}", std::any_cast<int>(stone::Interpreter {}.evaluate(*ast)));
 	}
 	catch (const std::exception& e)
 	{

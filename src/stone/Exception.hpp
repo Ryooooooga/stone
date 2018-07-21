@@ -55,4 +55,11 @@ namespace stone
 	public:
 		using StoneException::StoneException;
 	};
+
+	class EvaluateException
+		: public StoneException
+	{
+	public:
+		using StoneException::StoneException;
+	};
 }

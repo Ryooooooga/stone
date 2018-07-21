@@ -166,15 +166,33 @@ namespace stone
 		}
 
 		[[nodiscard]]
+		const ExpressionNode& condition() const noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
 		StatementNode& then() noexcept
 		{
 			return static_cast<StatementNode&>(*children()[1]);
 		}
 
 		[[nodiscard]]
-		StatementNode& otherwise() noexcept
+		const StatementNode& then() const noexcept
 		{
-			return static_cast<StatementNode&>(*children()[2]);
+			return static_cast<StatementNode&>(*children()[1]);
+		}
+
+		[[nodiscard]]
+		StatementNode* otherwise() noexcept
+		{
+			return static_cast<StatementNode*>(children()[2].get());
+		}
+
+		[[nodiscard]]
+		const StatementNode* otherwise() const noexcept
+		{
+			return static_cast<StatementNode*>(children()[2].get());
 		}
 	};
 
@@ -199,7 +217,19 @@ namespace stone
 		}
 
 		[[nodiscard]]
+		const ExpressionNode& condition() const noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
 		StatementNode& body() noexcept
+		{
+			return static_cast<StatementNode&>(*children()[1]);
+		}
+
+		[[nodiscard]]
+		const StatementNode& body() const noexcept
 		{
 			return static_cast<StatementNode&>(*children()[1]);
 		}
@@ -250,7 +280,19 @@ namespace stone
 		}
 
 		[[nodiscard]]
+		const ExpressionNode& left() const noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
 		ExpressionNode& right() noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[1]);
+		}
+
+		[[nodiscard]]
+		const ExpressionNode& right() const noexcept
 		{
 			return static_cast<ExpressionNode&>(*children()[1]);
 		}
@@ -280,6 +322,12 @@ namespace stone
 
 		[[nodiscard]]
 		ExpressionNode& operand() noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		const ExpressionNode& operand() const noexcept
 		{
 			return static_cast<ExpressionNode&>(*children()[0]);
 		}
@@ -365,13 +413,13 @@ namespace stone
 
 		~Printer() =default;
 
-		void print(Node& node)
+		void print(const Node& node)
 		{
 			print(node, 0);
 		}
 
 	private:
-		void print(Node& node, std::size_t depth)
+		void print(const Node& node, std::size_t depth)
 		{
 			using namespace fmt::literals;
 
@@ -385,7 +433,7 @@ namespace stone
 #define EXPAND(...) __VA_ARGS__
 #define this p
 #define STONE_NODE(_name, _format)                                                          \
-			if (const auto p = dynamic_cast<_name*>(&node))                                 \
+			if (const auto p = dynamic_cast<const _name*>(&node))                           \
 				m_stream << FORMAT(EXPAND _format, u8"name"_a = u8 ## #_name) << std::endl;
 #include "Node.def.hpp"
 #undef FORMAT
