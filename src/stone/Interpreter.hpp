@@ -128,6 +128,27 @@ namespace stone
 		}
 
 		[[nodiscard]]
+		std::any evaluate(const ParameterNode& node, Environment& env)
+		{
+			(void)env;
+			throw EvaluateException { node.lineNumber(), u8"not implemented" };
+		}
+
+		[[nodiscard]]
+		std::any evaluate(const ParameterListNode& node, Environment& env)
+		{
+			(void)env;
+			throw EvaluateException { node.lineNumber(), u8"not implemented" };
+		}
+
+		[[nodiscard]]
+		std::any evaluate(const ArgumentListNode& node, Environment& env)
+		{
+			(void)env;
+			throw EvaluateException { node.lineNumber(), u8"not implemented" };
+		}
+
+		[[nodiscard]]
 		std::any evaluate(const IfStatementNode& node, Environment& env)
 		{
 			if (asInteger(dispatch(node.condition(), env)) != 0)
@@ -166,6 +187,13 @@ namespace stone
 			}
 
 			return last;
+		}
+
+		[[nodiscard]]
+		std::any evaluate(const ProcedureStatementNode& node, Environment& env)
+		{
+			(void)env;
+			throw EvaluateException {node.lineNumber(), u8"not implemented"};
 		}
 
 		[[nodiscard]]
@@ -257,6 +285,13 @@ namespace stone
 				default:
 					throw EvaluateException { node.lineNumber(), fmt::format(u8"unknown unary operator {}.", node.operation()) };
 			}
+		}
+
+		[[nodiscard]]
+		std::any evaluate(const CallExpressionNode& node, Environment& env)
+		{
+			(void)env;
+			throw EvaluateException { node.lineNumber(), u8"not implemented" };
 		}
 
 		[[nodiscard]]

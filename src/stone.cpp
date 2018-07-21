@@ -35,18 +35,15 @@ int main()
 	try
 	{
 		auto lexer = std::make_unique<stone::Lexer>(u8R"(
-			even = 0
-			odd = 0
-			i = 1
-			while i < 10 {
-				if i % 2 == 0 { // even number?
-					even = even + 1
-				} else {
-					odd = odd + 1
+			def fact(n) {
+				f = 1
+				while n > 0 {
+					f = f * n
+					n = n - 1
 				}
-				i = i + 1
+				f
 			}
-			even + odd
+			fact(6)
 		)");
 
 		auto parser = std::make_unique<stone::Parser>(std::move(lexer));

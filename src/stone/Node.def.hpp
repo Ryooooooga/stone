@@ -42,17 +42,22 @@
 #	define STONE_UNARY_OPERATOR(_name, _text)
 #endif
 
-STONE_NODE(ProgramNode, ("{name}"))
+STONE_NODE(ProgramNode, ("{class}"))
+STONE_NODE(ParameterNode, ("{class} {name}", u8"name"_a=this->name()))
+STONE_NODE(ParameterListNode, ("{class}"))
+STONE_NODE(ArgumentListNode, ("{class}"))
 
-STONE_STATEMENT_NODE(IfStatementNode, ("{name}"))
-STONE_STATEMENT_NODE(WhileStatementNode, ("{name}"))
-STONE_STATEMENT_NODE(CompoundStatementNode, ("{name}"))
+STONE_STATEMENT_NODE(IfStatementNode, ("{class}"))
+STONE_STATEMENT_NODE(WhileStatementNode, ("{class}"))
+STONE_STATEMENT_NODE(CompoundStatementNode, ("{class}"))
+STONE_STATEMENT_NODE(ProcedureStatementNode, ("{class} {name}", u8"name"_a=this->name()))
 
-STONE_EXPRESSION_NODE(BinaryExpressionNode, ("{name} {operator}", u8"operator"_a=this->operation()))
-STONE_EXPRESSION_NODE(UnaryExpressionNode, ("{name} {operator}", u8"operator"_a=this->operation()))
-STONE_EXPRESSION_NODE(IdentifierExpressionNode, ("{name} {text}", u8"text"_a=this->name()))
-STONE_EXPRESSION_NODE(IntegerExpressionNode, ("{name} {value}", u8"value"_a=this->value()))
-STONE_EXPRESSION_NODE(StringExpressionNode, ("{name} {value}", u8"value"_a=this->value()))
+STONE_EXPRESSION_NODE(BinaryExpressionNode, ("{class} {operator}", u8"operator"_a=this->operation()))
+STONE_EXPRESSION_NODE(UnaryExpressionNode, ("{class} {operator}", u8"operator"_a=this->operation()))
+STONE_EXPRESSION_NODE(CallExpressionNode, ("{class}"))
+STONE_EXPRESSION_NODE(IdentifierExpressionNode, ("{class} {name}", u8"name"_a=this->name()))
+STONE_EXPRESSION_NODE(IntegerExpressionNode, ("{class} {value}", u8"value"_a=this->value()))
+STONE_EXPRESSION_NODE(StringExpressionNode, ("{class} {value}", u8"value"_a=this->value()))
 
 STONE_BINARY_OPERATOR(addition, "+")
 STONE_BINARY_OPERATOR(subtraction, "-")

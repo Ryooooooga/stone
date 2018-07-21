@@ -86,7 +86,7 @@ namespace stone
 
 
 		// program:
-		//     statement (separator statement)*
+		//     top-level-statement (separator top-level-statement)*
 		// separator:
 		//     ';' | end-of-line
 		[[nodiscard]]
@@ -94,13 +94,13 @@ namespace stone
 		{
 			auto node = std::make_unique<ProgramNode>();
 
-			// statement
-			if (auto statement = parseStatement())
+			// top-level-statement
+			if (auto statement = parseTopLevelStatement())
 			{
 				node->addChild(std::move(statement));
 			}
 
-			// (separator statement)*
+			// (separator top-level-statement)*
 			while (peekToken()->kind() != TokenKind::endOfFile)
 			{
 				// separator
@@ -109,14 +109,93 @@ namespace stone
 					matchToken(TokenKind::semicolon);
 				}
 
-				// statement
-				if (auto statement = parseStatement())
+				// top-level-statement
+				if (auto statement = parseTopLevelStatement())
 				{
 					node->addChild(std::move(statement));
 				}
 			}
 
 			return node;
+		}
+
+		// top-level-statement:
+		//     procedure-statement
+		//     statement
+		[[nodiscard]]
+		std::unique_ptr<StatementNode> parseTopLevelStatement()
+		{
+			switch (peekToken()->kind())
+			{
+				case TokenKind::keyword_def:
+					// procedure-statement
+					return parseProcedureStatement();
+
+				default:
+					// statement
+					return parseStatement();
+			}
+		}
+
+		// procedure-statement:
+		//     'def' identifier parameter-list compound-statement
+		[[nodiscard]]
+		std::unique_ptr<StatementNode> parseProcedureStatement()
+		{
+			// 'def'
+			const auto token = matchToken(TokenKind::keyword_def);
+
+			// identifier
+			const auto name = matchToken(TokenKind::identifier);
+
+			// parameter-list
+			auto parameters = parseParameterList();
+
+			// compound-statement
+			auto body = parseCompoundStatement();
+
+			return std::make_unique<ProcedureStatementNode>(token->lineNumber(), name->text(), std::move(parameters), std::move(body));
+		}
+
+		// parameter-list:
+		//     '(' parameter (',' parameter)* ')'
+		//     '(' ')'
+		[[nodiscard]]
+		std::unique_ptr<ParameterListNode> parseParameterList()
+		{
+			// '('
+			const auto token = matchToken(TokenKind::leftParen);
+
+			auto node = std::make_unique<ParameterListNode>(token->lineNumber());
+
+			// (parameter (',' parameter)*)?
+			if (peekToken()->kind() != TokenKind::rightParen)
+			{
+				// parameter
+				node->addChild(parseParameter());
+
+				// (',' parameter)*
+				while (consumeTokenIf(TokenKind::comma))
+				{
+					node->addChild(parseParameter());
+				}
+			}
+
+			// ')'
+			matchToken(TokenKind::rightParen);
+
+			return node;
+		}
+
+		// parameter:
+		//     identifier
+		[[nodiscard]]
+		std::unique_ptr<ParameterNode> parseParameter()
+		{
+			// identifier
+			const auto token = matchToken(TokenKind::identifier);
+
+			return std::make_unique<ParameterNode>(token->lineNumber(), token->text());
 		}
 
 		// statement:
@@ -294,7 +373,7 @@ namespace stone
 
 		// unary-expression:
 		//     negative-expression
-		//     primary-expression
+		//     postfix-expression
 		[[nodiscard]]
 		std::unique_ptr<ExpressionNode> parseUnaryExpression()
 		{
@@ -305,23 +384,77 @@ namespace stone
 					return parseNegativeExpression();
 
 				default:
-					// primary-expression
-					return parsePrimaryExpression();
+					// postfix-expression
+					return parsePostfixExpression();
 			}
 		}
 
 		// negative-expression:
-		//     '-' primary-expression
+		//     '-' postfix-expression
 		[[nodiscard]]
 		std::unique_ptr<ExpressionNode> parseNegativeExpression()
 		{
 			// '-'
 			const auto token = matchToken(TokenKind::minus);
 
+			// postfix-expression
+			auto operand = parsePostfixExpression();
+
+			return std::make_unique<UnaryExpressionNode>(token->lineNumber(), UnaryOperator::negation, std::move(operand));
+		}
+
+		// postfix-expression:
+		//     primary-expression (call-expression-postfix)*
+		[[nodiscard]]
+		std::unique_ptr<ExpressionNode> parsePostfixExpression()
+		{
 			// primary-expression
 			auto operand = parsePrimaryExpression();
 
-			return std::make_unique<UnaryExpressionNode>(token->lineNumber(), UnaryOperator::negation, std::move(operand));
+			// (call-expression-postfix)*
+			while (true)
+			{
+				switch (peekToken()->kind())
+				{
+					case TokenKind::leftParen:
+						// call-expression-postfix
+						operand = parseCallExpressionPostfix(std::move(operand));
+						break;
+
+					default:
+						return operand;
+				}
+			}
+		}
+
+		// call-expression-postfix:
+		//     '(' expression (',' expression)* ')'
+		//     '(' ')'
+		[[nodiscard]]
+		std::unique_ptr<ExpressionNode> parseCallExpressionPostfix(std::unique_ptr<ExpressionNode>&& operand)
+		{
+			// '('
+			const auto token = matchToken(TokenKind::leftParen);
+
+			auto arguments = std::make_unique<ArgumentListNode>(token->lineNumber());
+
+			// (expression (',' expression)*)?
+			if (peekToken()->kind() != TokenKind::rightParen)
+			{
+				// expression
+				arguments->addChild(parseExpression());
+
+				// (',' expression)*
+				while (consumeTokenIf(TokenKind::comma))
+				{
+					arguments->addChild(parseExpression());
+				}
+			}
+
+			// ')'
+			matchToken(TokenKind::rightParen);
+
+			return std::make_unique<CallExpressionNode>(operand->lineNumber(), std::move(operand), std::move(arguments));
 		}
 
 		// primary-expression:

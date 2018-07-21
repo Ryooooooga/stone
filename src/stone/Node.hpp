@@ -144,6 +144,60 @@ namespace stone
 		}
 	};
 
+	class ParameterNode
+		: public Node
+	{
+	public:
+		explicit ParameterNode(std::size_t lineNumber, std::string_view name)
+			: Node(lineNumber)
+			, m_name(name)
+		{
+		}
+
+		[[nodiscard]]
+		std::string_view name() const noexcept
+		{
+			return m_name;
+		}
+
+	private:
+		std::string m_name;
+	};
+
+	class ParameterListNode
+		: public Node
+	{
+	public:
+		explicit ParameterListNode(std::size_t lineNumber)
+			: Node(lineNumber)
+		{
+		}
+
+		void addChild(std::unique_ptr<ParameterNode>&& expression)
+		{
+			assert(expression);
+
+			Node::addChild(std::move(expression));
+		}
+	};
+
+	class ArgumentListNode
+		: public Node
+	{
+	public:
+		explicit ArgumentListNode(std::size_t lineNumber)
+			: Node(lineNumber)
+		{
+		}
+
+		void addChild(std::unique_ptr<ExpressionNode>&& expression)
+		{
+			assert(expression);
+
+			Node::addChild(std::move(expression));
+		}
+	};
+
 	class IfStatementNode
 		: public StatementNode
 	{
@@ -252,6 +306,55 @@ namespace stone
 		}
 	};
 
+	class ProcedureStatementNode
+		: public StatementNode
+	{
+	public:
+		explicit ProcedureStatementNode(std::size_t lineNumber, std::string_view name, std::unique_ptr<ParameterListNode>&& parameters, std::unique_ptr<StatementNode>&& body)
+			: StatementNode(lineNumber)
+			, m_name(name)
+		{
+			assert(parameters);
+			assert(body);
+
+			addChild(std::move(parameters));
+			addChild(std::move(body));
+		}
+
+		[[nodiscard]]
+		std::string_view name() const noexcept
+		{
+			return m_name;
+		}
+
+		[[nodiscard]]
+		ParameterListNode& parameters() noexcept
+		{
+			return static_cast<ParameterListNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		const ParameterListNode& parameters() const noexcept
+		{
+			return static_cast<ParameterListNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		StatementNode& body() noexcept
+		{
+			return static_cast<StatementNode&>(*children()[1]);
+		}
+
+		[[nodiscard]]
+		const StatementNode& body() const noexcept
+		{
+			return static_cast<StatementNode&>(*children()[1]);
+		}
+
+	private:
+		std::string m_name;
+	};
+
 	class BinaryExpressionNode
 		: public ExpressionNode
 	{
@@ -334,6 +437,45 @@ namespace stone
 
 	private:
 		UnaryOperator m_operation;
+	};
+
+	class CallExpressionNode
+		: public ExpressionNode
+	{
+	public:
+		explicit CallExpressionNode(std::size_t lineNumber, std::unique_ptr<ExpressionNode>&& callee, std::unique_ptr<ArgumentListNode>&& arguments)
+			: ExpressionNode(lineNumber)
+		{
+			assert(callee);
+			assert(arguments);
+
+			addChild(std::move(callee));
+			addChild(std::move(arguments));
+		}
+
+		[[nodiscard]]
+		ExpressionNode& callee() noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		const ExpressionNode& callee() const noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		ArgumentListNode& arguments() noexcept
+		{
+			return static_cast<ArgumentListNode&>(*children()[1]);
+		}
+
+		[[nodiscard]]
+		const ArgumentListNode& arguments() const noexcept
+		{
+			return static_cast<ArgumentListNode&>(*children()[1]);
+		}
 	};
 
 	class IdentifierExpressionNode
@@ -434,7 +576,7 @@ namespace stone
 #define this p
 #define STONE_NODE(_name, _format)                                                          \
 			if (const auto p = dynamic_cast<const _name*>(&node))                           \
-				m_stream << FORMAT(EXPAND _format, u8"name"_a = u8 ## #_name) << std::endl;
+				m_stream << FORMAT(EXPAND _format, u8"class"_a = u8 ## #_name) << std::endl;
 #include "Node.def.hpp"
 #undef FORMAT
 #undef FORMAT_I
