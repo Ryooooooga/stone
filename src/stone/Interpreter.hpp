@@ -35,7 +35,11 @@ namespace stone
 	class Environment
 	{
 	public:
-		explicit Environment() =default;
+		explicit Environment(const std::shared_ptr<Environment>& parent = nullptr)
+			: m_parent(parent)
+			, m_table()
+		{
+		}
 
 		// Uncopyable, unmovable.
 		Environment(const Environment&) =delete;
@@ -46,7 +50,21 @@ namespace stone
 
 		~Environment() =default;
 
-		void put(std::string_view name, std::any value)
+		void set(std::string_view name, const std::any& value)
+		{
+			for (auto env = this; env; env = env->m_parent.get())
+			{
+				if (const auto it = env->m_table.find(name); it != std::cend(env->m_table))
+				{
+					it->second = value;
+					return;
+				}
+			}
+
+			put(name, value);
+		}
+
+		void put(std::string_view name, const std::any& value)
 		{
 			m_table[name] = value;
 		}
@@ -54,10 +72,20 @@ namespace stone
 		[[nodiscard]]
 		std::any get(std::string_view name)
 		{
-			return m_table[name];
+			if (const auto it = m_table.find(name); it != std::cend(m_table))
+			{
+				return it->second;
+			}
+			else if (m_parent)
+			{
+				return m_parent->get(name);
+			}
+
+			return {};
 		}
 
 	private:
+		std::shared_ptr<Environment> m_parent;
 		std::unordered_map<std::string_view, std::any> m_table;
 	};
 
@@ -78,7 +106,7 @@ namespace stone
 		[[nodiscard]]
 		std::any evaluate(const ProgramNode& node)
 		{
-			Environment env;
+			const auto env = std::make_shared<Environment>();
 
 			return evaluate(node, env);
 		}
@@ -104,7 +132,7 @@ namespace stone
 		}
 
 		[[nodiscard]]
-		std::any dispatch(const Node& node, Environment& env)
+		std::any dispatch(const Node& node, const std::shared_ptr<Environment>& env)
 		{
 #define STONE_NODE(_name, _format)                                \
 			if (const auto p = dynamic_cast<const _name*>(&node)) \
@@ -115,7 +143,7 @@ namespace stone
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const ProgramNode& node, Environment& env)
+		std::any evaluate(const ProgramNode& node, const std::shared_ptr<Environment>& env)
 		{
 			std::any last;
 
@@ -128,28 +156,28 @@ namespace stone
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const ParameterNode& node, Environment& env)
+		std::any evaluate(const ParameterNode& node, const std::shared_ptr<Environment>& env)
 		{
 			(void)env;
 			throw EvaluateException { node.lineNumber(), u8"not implemented" };
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const ParameterListNode& node, Environment& env)
+		std::any evaluate(const ParameterListNode& node, const std::shared_ptr<Environment>& env)
 		{
 			(void)env;
 			throw EvaluateException { node.lineNumber(), u8"not implemented" };
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const ArgumentListNode& node, Environment& env)
+		std::any evaluate(const ArgumentListNode& node, const std::shared_ptr<Environment>& env)
 		{
 			(void)env;
 			throw EvaluateException { node.lineNumber(), u8"not implemented" };
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const IfStatementNode& node, Environment& env)
+		std::any evaluate(const IfStatementNode& node, const std::shared_ptr<Environment>& env)
 		{
 			if (asInteger(dispatch(node.condition(), env)) != 0)
 			{
@@ -164,7 +192,7 @@ namespace stone
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const WhileStatementNode& node, Environment& env)
+		std::any evaluate(const WhileStatementNode& node, const std::shared_ptr<Environment>& env)
 		{
 			std::any last;
 
@@ -177,7 +205,7 @@ namespace stone
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const CompoundStatementNode& node, Environment& env)
+		std::any evaluate(const CompoundStatementNode& node, const std::shared_ptr<Environment>& env)
 		{
 			std::any last;
 
@@ -190,14 +218,14 @@ namespace stone
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const ProcedureStatementNode& node, Environment& env)
+		std::any evaluate(const ProcedureStatementNode& node, const std::shared_ptr<Environment>& env)
 		{
 			(void)env;
 			throw EvaluateException {node.lineNumber(), u8"not implemented"};
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const BinaryExpressionNode& node, Environment& env)
+		std::any evaluate(const BinaryExpressionNode& node, const std::shared_ptr<Environment>& env)
 		{
 			switch (node.operation())
 			{
@@ -261,7 +289,7 @@ namespace stone
 					if (const auto left = dynamic_cast<const IdentifierExpressionNode*>(&node.left()))
 					{
 						const auto right = dispatch(node.right(), env);
-						env.put(left->name(), right);
+						env->put(left->name(), right);
 
 						return right;
 					}
@@ -275,7 +303,7 @@ namespace stone
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const UnaryExpressionNode& node, Environment& env)
+		std::any evaluate(const UnaryExpressionNode& node, const std::shared_ptr<Environment>& env)
 		{
 			switch (node.operation())
 			{
@@ -288,26 +316,26 @@ namespace stone
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const CallExpressionNode& node, Environment& env)
+		std::any evaluate(const CallExpressionNode& node, const std::shared_ptr<Environment>& env)
 		{
 			(void)env;
 			throw EvaluateException { node.lineNumber(), u8"not implemented" };
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const IdentifierExpressionNode& node, Environment& env)
+		std::any evaluate(const IdentifierExpressionNode& node, const std::shared_ptr<Environment>& env)
 		{
-			return env.get(node.name());
+			return env->get(node.name());
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const IntegerExpressionNode& node, [[maybe_unused]] Environment& env)
+		std::any evaluate(const IntegerExpressionNode& node, [[maybe_unused]] const std::shared_ptr<Environment>& env)
 		{
 			return node.value();
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const StringExpressionNode& node, [[maybe_unused]] Environment& env)
+		std::any evaluate(const StringExpressionNode& node, [[maybe_unused]] const std::shared_ptr<Environment>& env)
 		{
 			return node.value();
 		}
