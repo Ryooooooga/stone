@@ -95,7 +95,10 @@ namespace stone
 			auto node = std::make_unique<ProgramNode>();
 
 			// statement
-			node->addChild(parseStatement());
+			if (auto statement = parseStatement())
+			{
+				node->addChild(std::move(statement));
+			}
 
 			// (separator statement)*
 			while (peekToken()->kind() != TokenKind::endOfFile)
@@ -107,7 +110,10 @@ namespace stone
 				}
 
 				// statement
-				node->addChild(parseStatement());
+				if (auto statement = parseStatement())
+				{
+					node->addChild(std::move(statement));
+				}
 			}
 
 			return node;
@@ -141,7 +147,7 @@ namespace stone
 				case TokenKind::semicolon:
 				case TokenKind::rightBrace:
 					// null-statement
-					return std::make_unique<NullStatementNode>(token->lineNumber());
+					return nullptr;
 
 				default:
 					// expression
@@ -207,7 +213,10 @@ namespace stone
 			auto node = std::make_unique<CompoundStatementNode>(token->lineNumber());
 
 			// statement
-			node->addChild(parseStatement());
+			if (auto statement = parseStatement())
+			{
+				node->addChild(std::move(statement));
+			}
 
 			// (separator statement)* '}'
 			while (!consumeTokenIf(TokenKind::rightBrace))
@@ -219,7 +228,10 @@ namespace stone
 				}
 
 				// statement
-				node->addChild(parseStatement());
+				if (auto statement = parseStatement())
+				{
+					node->addChild(std::move(statement));
+				}
 			}
 
 			return node;

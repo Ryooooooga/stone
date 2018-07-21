@@ -222,16 +222,6 @@ namespace stone
 		}
 	};
 
-	class NullStatementNode
-		: public StatementNode
-	{
-	public:
-		explicit NullStatementNode(std::size_t lineNumber)
-			: StatementNode(lineNumber)
-		{
-		}
-	};
-
 	class BinaryExpressionNode
 		: public ExpressionNode
 	{

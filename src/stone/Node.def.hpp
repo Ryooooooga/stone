@@ -47,7 +47,6 @@ STONE_NODE(ProgramNode, ("{name}"))
 STONE_STATEMENT_NODE(IfStatementNode, ("{name}"))
 STONE_STATEMENT_NODE(WhileStatementNode, ("{name}"))
 STONE_STATEMENT_NODE(CompoundStatementNode, ("{name}"))
-STONE_STATEMENT_NODE(NullStatementNode, ("{name}"))
 
 STONE_EXPRESSION_NODE(BinaryExpressionNode, ("{name} {operator}", u8"operator"_a=this->operation()))
 STONE_EXPRESSION_NODE(UnaryExpressionNode, ("{name} {operator}", u8"operator"_a=this->operation()))
