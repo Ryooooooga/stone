@@ -22,8 +22,9 @@
  * SOFTWARE.
 ================================================================================*/
 
-#include "stone/Node.hpp"
-#include "stone/TokenStream.hpp"
+#include "stone/Parser.hpp"
+
+#include <iostream>
 
 #include <boost/type_index.hpp>
 #include <fmt/ostream.h>
@@ -47,14 +48,11 @@ int main()
 			even + odd
 		)");
 
-		auto stream = std::make_unique<stone::TokenStream>(std::move(lexer));
+		auto parser = std::make_unique<stone::Parser>(std::move(lexer));
 
-		while (true)
-		{
-			const auto token = stream->read();
-			fmt::print(u8"{}:`{}':`{}':{}:`{}'\n", token->lineNumber(), token->kind(), token->text(), token->integerValue(), token->stringValue());
-			if (token->kind() == stone::TokenKind::endOfFile) break;
-		}
+		const auto ast = parser->parse();
+
+		stone::Printer {std::cout}.print(*ast);
 	}
 	catch (const std::exception& e)
 	{
