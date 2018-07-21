@@ -28,8 +28,50 @@
 #include <memory>
 #include <vector>
 
+#include <fmt/ostream.h>
+
 namespace stone
 {
+	enum class BinaryOperator
+	{
+#define STONE_BINARY_OPERATOR(_name, _text) _name,
+#include "Node.def.hpp"
+	};
+
+	enum class UnaryOperator
+	{
+#define STONE_UNARY_OPERATOR(_name, _text) _name,
+#include "Node.def.hpp"
+	};
+
+	inline std::ostream& operator <<(std::ostream& stream, BinaryOperator operation)
+	{
+		switch (operation)
+		{
+#define STONE_BINARY_OPERATOR(_name, _text)  \
+			case BinaryOperator::_name:      \
+				return stream << u8 ## _text;
+#include "Node.def.hpp"
+
+			default:
+				return stream << u8"unknown";
+		}
+	}
+
+	inline std::ostream& operator <<(std::ostream& stream, UnaryOperator operation)
+	{
+		switch (operation)
+		{
+#define STONE_UNARY_OPERATOR(_name, _text)   \
+			case UnaryOperator::_name:       \
+				return stream << u8 ## _text;
+#include "Node.def.hpp"
+
+			default:
+				return stream << u8"unknown";
+		}
+	}
+
 	class Node
 	{
 	public:
@@ -79,21 +121,136 @@ namespace stone
 	};
 
 	class ExpressionNode
-		: public Node
+		: public StatementNode
 	{
 	protected:
-		using Node::Node;
+		using StatementNode::StatementNode;
+	};
+
+	class ProgramNode
+		: public Node
+	{
+	public:
+		explicit ProgramNode()
+			: Node(0)
+		{
+		}
+
+		void addChild(std::unique_ptr<StatementNode>&& node)
+		{
+			assert(node);
+
+			Node::addChild(std::move(node));
+		}
+	};
+
+	class IfStatementNode
+		: public StatementNode
+	{
+	public:
+		explicit IfStatementNode(std::size_t lineNumber, std::unique_ptr<ExpressionNode>&& condition, std::unique_ptr<StatementNode>&& then, std::unique_ptr<StatementNode>&& otherwise)
+			: StatementNode(lineNumber)
+		{
+			assert(condition);
+			assert(then);
+
+			addChild(std::move(condition));
+			addChild(std::move(then));
+			addChild(std::move(otherwise));
+		}
+
+		[[nodiscard]]
+		ExpressionNode& condition() noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		StatementNode& then() noexcept
+		{
+			return static_cast<StatementNode&>(*children()[1]);
+		}
+
+		[[nodiscard]]
+		StatementNode& otherwise() noexcept
+		{
+			return static_cast<StatementNode&>(*children()[2]);
+		}
+	};
+
+	class WhileStatementNode
+		: public StatementNode
+	{
+	public:
+		explicit WhileStatementNode(std::size_t lineNumber, std::unique_ptr<ExpressionNode>&& condition, std::unique_ptr<StatementNode>&& body)
+			: StatementNode(lineNumber)
+		{
+			assert(condition);
+			assert(body);
+
+			addChild(std::move(condition));
+			addChild(std::move(body));
+		}
+
+		[[nodiscard]]
+		ExpressionNode& condition() noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		StatementNode& body() noexcept
+		{
+			return static_cast<StatementNode&>(*children()[1]);
+		}
+	};
+
+	class CompoundStatementNode
+		: public StatementNode
+	{
+	public:
+		explicit CompoundStatementNode(std::size_t lineNumber)
+			: StatementNode(lineNumber)
+		{
+		}
+
+		void addChild(std::unique_ptr<StatementNode>&& node)
+		{
+			assert(node);
+
+			Node::addChild(std::move(node));
+		}
+	};
+
+	class NullStatementNode
+		: public StatementNode
+	{
+	public:
+		explicit NullStatementNode(std::size_t lineNumber)
+			: StatementNode(lineNumber)
+		{
+		}
 	};
 
 	class BinaryExpressionNode
 		: public ExpressionNode
 	{
 	public:
-		explicit BinaryExpressionNode(std::size_t lineNumber, std::unique_ptr<ExpressionNode>&& left, std::unique_ptr<ExpressionNode>&& right)
+		explicit BinaryExpressionNode(std::size_t lineNumber, BinaryOperator operation, std::unique_ptr<ExpressionNode>&& left, std::unique_ptr<ExpressionNode>&& right)
 			: ExpressionNode(lineNumber)
+			, m_operation(operation)
 		{
 			assert(left);
 			assert(right);
+
+			addChild(std::move(left));
+			addChild(std::move(right));
+		}
+
+		[[nodiscard]]
+		BinaryOperator operation() const noexcept
+		{
+			return m_operation;
 		}
 
 		[[nodiscard]]
@@ -107,13 +264,69 @@ namespace stone
 		{
 			return static_cast<ExpressionNode&>(*children()[1]);
 		}
+
+	private:
+		BinaryOperator m_operation;
+	};
+
+	class UnaryExpressionNode
+		: public ExpressionNode
+	{
+	public:
+		explicit UnaryExpressionNode(std::size_t lineNumber, UnaryOperator operation, std::unique_ptr<ExpressionNode>&& operand)
+			: ExpressionNode(lineNumber)
+			, m_operation(operation)
+		{
+			assert(operand);
+
+			addChild(std::move(operand));
+		}
+
+		[[nodiscard]]
+		UnaryOperator operation() const noexcept
+		{
+			return m_operation;
+		}
+
+		[[nodiscard]]
+		ExpressionNode& operand() noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[0]);
+		}
+
+	private:
+		UnaryOperator m_operation;
+	};
+
+	class IdentifierExpressionNode
+		: public ExpressionNode
+	{
+	public:
+		explicit IdentifierExpressionNode(std::size_t lineNumber, std::string_view name)
+			: ExpressionNode(lineNumber)
+			, m_name(name)
+		{
+		}
+
+		[[nodiscard]]
+		std::string_view name() const noexcept
+		{
+			return m_name;
+		}
+
+	private:
+		std::string m_name;
 	};
 
 	class IntegerExpressionNode
 		: public ExpressionNode
 	{
 	public:
-		using ExpressionNode::ExpressionNode;
+		explicit IntegerExpressionNode(std::size_t lineNumber, int value)
+			: ExpressionNode(lineNumber)
+			, m_value(value)
+		{
+		}
 
 		[[nodiscard]]
 		int value() const noexcept
@@ -123,5 +336,62 @@ namespace stone
 
 	private:
 		int m_value;
+	};
+
+	class Printer
+	{
+	public:
+		explicit Printer(std::ostream& stream)
+			: m_stream(stream)
+		{
+		}
+
+		// Uncopyable, unmovable.
+		Printer(const Printer&) =delete;
+		Printer(Printer&&) =delete;
+
+		Printer& operator=(const Printer&) =delete;
+		Printer& operator=(Printer&&) =delete;
+
+		~Printer() =default;
+
+		void print(Node& node)
+		{
+			print(node, 0);
+		}
+
+	private:
+		void print(Node& node, std::size_t depth)
+		{
+			using namespace fmt::literals;
+
+			for (std::size_t i = 0; i < depth; i++)
+			{
+				m_stream << u8"    ";
+			}
+
+#define FORMAT(_format, ...) FORMAT_I(_format, __VA_ARGS__)
+#define FORMAT_I(_format, ...) fmt::format(u8 ## _format, __VA_ARGS__)
+#define EXPAND(...) __VA_ARGS__
+#define this p
+#define STONE_NODE(_name, _format)                                                          \
+			if (const auto p = dynamic_cast<_name*>(&node))                                 \
+				m_stream << FORMAT(EXPAND _format, u8"name"_a = u8 ## #_name) << std::endl;
+#include "Node.def.hpp"
+#undef FORMAT
+#undef FORMAT_I
+#undef EXPAND
+#undef this
+
+			for (const auto& child : node.children())
+			{
+				if (child)
+				{
+					print(*child, depth + 1);
+				}
+			}
+		}
+
+		std::ostream& m_stream;
 	};
 }
