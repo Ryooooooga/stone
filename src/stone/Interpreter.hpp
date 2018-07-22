@@ -276,6 +276,27 @@ namespace stone
 		std::function<Return(Parameters...)> m_function;
 	};
 
+	class ClassObject
+		: public StoneObject
+	{
+	public:
+		explicit ClassObject(const ClassStatementNode& node, const std::shared_ptr<Environment>& env)
+			: m_node(node)
+			, m_env(env)
+		{
+			assert(m_env);
+		}
+
+		std::string asString()
+		{
+			return fmt::format(u8"[class {}]", m_node.name());
+		}
+
+	private:
+		const ClassStatementNode& m_node;
+		std::shared_ptr<Environment> m_env;
+	};
+
 	class Interpreter
 	{
 	public:
@@ -388,8 +409,10 @@ namespace stone
 		[[nodiscard]]
 		std::shared_ptr<StoneObject> evaluate(const ClassStatementNode& node, const std::shared_ptr<Environment>& env)
 		{
-			(void)env;
-			throw EvaluateException{node.lineNumber(), "not implemented class"};
+			const auto classObject = std::make_shared<ClassObject>(node, env);
+			env->put(node.name(), classObject);
+
+			return classObject;
 		}
 
 		[[nodiscard]]
