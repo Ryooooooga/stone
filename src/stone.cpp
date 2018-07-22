@@ -72,23 +72,16 @@ int main()
 
 		const auto env = std::make_shared<stone::Environment>(nullptr);
 
-		env->put(u8"print", std::static_pointer_cast<stone::IFunction>(std::make_shared<stone::NativeFunction<std::any, std::any>>([](const std::any& value)
+		env->put(u8"print", std::make_shared<stone::NativeFunctionObject<std::shared_ptr<stone::StoneObject>, std::shared_ptr<stone::StoneObject>>>([](const std::shared_ptr<stone::StoneObject>& value)
 			{
-				if (const auto p = std::any_cast<int>(&value))
-					fmt::print(u8"{}\n", *p);
-				else if (const auto p = std::any_cast<std::string>(&value))
-					fmt::print(u8"{}\n", *p);
-				else if (const auto p = std::any_cast<std::shared_ptr<stone::IFunction>>(&value))
-					fmt::print(u8"function\n");
-				else
-					fmt::print(u8"unknown type {}\n", value.type().name());
+				fmt::print(u8"{}\n", value->asString());
 
 				return value;
-			})));
+			}));
 
 		const auto result = stone::Interpreter {}.evaluate(*ast, env);
 
-		fmt::print(u8"result: {}\n", std::any_cast<int>(result));
+		fmt::print(u8"result: {}\n", result->asString());
 	}
 	catch (const std::exception& e)
 	{
