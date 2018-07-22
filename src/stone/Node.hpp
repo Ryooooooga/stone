@@ -355,6 +355,49 @@ namespace stone
 		std::string m_name;
 	};
 
+	class ClassStatementNode
+		: public StatementNode
+	{
+	public:
+		explicit ClassStatementNode(std::size_t lineNumber, std::string_view name, std::optional<std::string_view> superName, std::unique_ptr<StatementNode>&& body)
+			: StatementNode(lineNumber)
+			, m_name(name)
+			, m_superName(superName)
+		{
+			assert(body);
+
+			addChild(std::move(body));
+		}
+
+		[[nodiscard]]
+		std::string_view name() const noexcept
+		{
+			return m_name;
+		}
+
+		[[nodiscard]]
+		std::optional<std::string_view> superName() const noexcept
+		{
+			return m_superName;
+		}
+
+		[[nodiscard]]
+		StatementNode& body() noexcept
+		{
+			return static_cast<StatementNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		const StatementNode& body() const noexcept
+		{
+			return static_cast<StatementNode&>(*children()[0]);
+		}
+
+	private:
+		std::string m_name;
+		std::optional<std::string> m_superName;
+	};
+
 	class BinaryExpressionNode
 		: public ExpressionNode
 	{
@@ -476,6 +519,41 @@ namespace stone
 		{
 			return static_cast<ArgumentListNode&>(*children()[1]);
 		}
+	};
+
+	class MemberAccessExpressionNode
+		: public ExpressionNode
+	{
+	public:
+		explicit MemberAccessExpressionNode(std::size_t lineNumber, std::unique_ptr<ExpressionNode>&& operand, std::string_view memberName)
+			: ExpressionNode(lineNumber)
+			, m_memberName(memberName)
+		{
+			assert(operand);
+
+			addChild(std::move(operand));
+		}
+
+		[[nodiscard]]
+		ExpressionNode& operand() noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		const ExpressionNode& operand() const noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		std::string_view memberName() const noexcept
+		{
+			return m_memberName;
+		}
+
+	private:
+		std::string m_memberName;
 	};
 
 	class ClosureExpressionNode
@@ -610,7 +688,7 @@ namespace stone
 			}
 
 #define FORMAT(_format, ...) FORMAT_I(_format, __VA_ARGS__)
-#define FORMAT_I(_format, ...) fmt::format(u8 ## _format, __VA_ARGS__)
+#define FORMAT_I(_format, ...) fmt::format(fmt(u8 ## _format), __VA_ARGS__)
 #define EXPAND(...) __VA_ARGS__
 #define this p
 #define STONE_NODE(_name, _format)                                                          \

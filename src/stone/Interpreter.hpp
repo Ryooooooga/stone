@@ -303,6 +303,13 @@ namespace stone
 		}
 
 		[[nodiscard]]
+		std::any evaluate(const ClassStatementNode& node, const std::shared_ptr<Environment>& env)
+		{
+			(void)env;
+			throw EvaluateException{node.lineNumber(), "not implemented class"};
+		}
+
+		[[nodiscard]]
 		std::any evaluate(const BinaryExpressionNode& node, const std::shared_ptr<Environment>& env)
 		{
 			switch (node.operation())
@@ -409,6 +416,13 @@ namespace stone
 			}
 
 			return function->invoke(*this, arguments);
+		}
+
+		[[nodiscard]]
+		std::any evaluate(const MemberAccessExpressionNode& node, const std::shared_ptr<Environment>& env)
+		{
+			(void)env;
+			throw EvaluateException{node.lineNumber(), "not implemented member"};
 		}
 
 		[[nodiscard]]

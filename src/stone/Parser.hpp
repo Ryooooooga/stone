@@ -119,17 +119,58 @@ namespace stone
 			return node;
 		}
 
-		// top-level-statement:
+		// statement:
 		//     procedure-statement
+		//     if-statement
+		//     while-statement
+		//     compound-statement
+		//     null-statement
+		//     expression
+		[[nodiscard]]
+		std::unique_ptr<StatementNode> parseStatement()
+		{
+			switch (const auto token = peekToken(); token->kind())
+			{
+				case TokenKind::keyword_def:
+					// procedure-statement
+					return parseProcedureStatement();
+
+				case TokenKind::keyword_if:
+					// if-statement
+					return parseIfStatement();
+
+				case TokenKind::keyword_while:
+					// while-statement
+					return parseWhileStatement();
+
+				case TokenKind::leftBrace:
+					// compound-statement
+					return parseCompoundStatement();
+
+				case TokenKind::endOfFile:
+				case TokenKind::endOfLine:
+				case TokenKind::semicolon:
+				case TokenKind::rightBrace:
+					// null-statement
+					return nullptr;
+
+				default:
+					// expression
+					return parseExpression();
+			}
+		}
+
+		// top-level-statement:
+		//     class-statement
 		//     statement
 		[[nodiscard]]
 		std::unique_ptr<StatementNode> parseTopLevelStatement()
 		{
 			switch (peekToken()->kind())
 			{
-				case TokenKind::keyword_def:
-					// procedure-statement
-					return parseProcedureStatement();
+				case TokenKind::keyword_class:
+					// class-statement
+					return parseClassStatement();
 
 				default:
 					// statement
@@ -155,6 +196,27 @@ namespace stone
 			auto body = parseCompoundStatement();
 
 			return std::make_unique<ProcedureStatementNode>(token->lineNumber(), name->text(), std::move(parameters), std::move(body));
+		}
+
+		// class-statement:
+		//     'class' identifier ('extends' identifier)? compound-statement
+		[[nodiscard]]
+		std::unique_ptr<StatementNode> parseClassStatement()
+		{
+			// 'class'
+			const auto token = matchToken(TokenKind::keyword_class);
+
+			// identifier
+			const auto name = matchToken(TokenKind::identifier);
+
+			// ('extends' identifier)?
+			const auto super = consumeTokenIf(TokenKind::keyword_extends)
+				? matchToken(TokenKind::identifier) : nullptr;
+
+			// compound-statement
+			auto body = parseCompoundStatement();
+
+			return std::make_unique<ClassStatementNode>(token->lineNumber(), name->text(), super ? std::make_optional(super->text()) : std::nullopt, std::move(body));
 		}
 
 		// parameter-list:
@@ -196,42 +258,6 @@ namespace stone
 			const auto token = matchToken(TokenKind::identifier);
 
 			return std::make_unique<ParameterNode>(token->lineNumber(), token->text());
-		}
-
-		// statement:
-		//     if-statement
-		//     while-statement
-		//     compound-statement
-		//     null-statement
-		//     expression
-		[[nodiscard]]
-		std::unique_ptr<StatementNode> parseStatement()
-		{
-			switch (const auto token = peekToken(); token->kind())
-			{
-				case TokenKind::keyword_if:
-					// if-statement
-					return parseIfStatement();
-
-				case TokenKind::keyword_while:
-					// while-statement
-					return parseWhileStatement();
-
-				case TokenKind::leftBrace:
-					// compound-statement
-					return parseCompoundStatement();
-
-				case TokenKind::endOfFile:
-				case TokenKind::endOfLine:
-				case TokenKind::semicolon:
-				case TokenKind::rightBrace:
-					// null-statement
-					return nullptr;
-
-				default:
-					// expression
-					return parseExpression();
-			}
 		}
 
 		// if-statement:
@@ -404,7 +430,10 @@ namespace stone
 		}
 
 		// postfix-expression:
-		//     primary-expression (call-expression-postfix)*
+		//     primary-expression postfix
+		// postfix:
+		//     call-expression-postfix
+		//     member-access-expression-postfix
 		[[nodiscard]]
 		std::unique_ptr<ExpressionNode> parsePostfixExpression()
 		{
@@ -419,6 +448,10 @@ namespace stone
 					case TokenKind::leftParen:
 						// call-expression-postfix
 						operand = parseCallExpressionPostfix(std::move(operand));
+						break;
+
+					case TokenKind::period:
+						operand = parseMemberAccessPostfix(std::move(operand));
 						break;
 
 					default:
@@ -455,6 +488,20 @@ namespace stone
 			matchToken(TokenKind::rightParen);
 
 			return std::make_unique<CallExpressionNode>(operand->lineNumber(), std::move(operand), std::move(arguments));
+		}
+
+		// member-access-expression-postfix:
+		//     '.' identifier
+		[[nodiscard]]
+		std::unique_ptr<ExpressionNode> parseMemberAccessPostfix(std::unique_ptr<ExpressionNode>&& operand)
+		{
+			// '.'
+			const auto token = matchToken(TokenKind::period);
+
+			// identifier
+			const auto member = matchToken(TokenKind::identifier);
+
+			return std::make_unique<MemberAccessExpressionNode>(token->lineNumber(), std::move(operand), member->text());
 		}
 
 		// primary-expression:
