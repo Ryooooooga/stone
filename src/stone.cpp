@@ -52,7 +52,7 @@ int main()
 
 		stone::Printer {std::cout}.print(*ast);
 
-		fmt::print(u8"result: {}", std::any_cast<int>(stone::Interpreter {}.evaluate(*ast)));
+		fmt::print(u8"result: {}\n", std::any_cast<int>(stone::Interpreter {}.evaluate(*ast)));
 	}
 	catch (const std::exception& e)
 	{

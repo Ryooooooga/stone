@@ -89,6 +89,36 @@ namespace stone
 		std::unordered_map<std::string_view, std::any> m_table;
 	};
 
+	class Function
+	{
+	public:
+		explicit Function(const ProcedureStatementNode& node, const std::shared_ptr<Environment>& env)
+			: m_node(node)
+			, m_env(env)
+		{
+			assert(m_env);
+		}
+
+		// Uncopyable, unmovable.
+		Function(const Function&) =delete;
+		Function(Function&&) =delete;
+
+		Function& operator=(const Function&) =delete;
+		Function& operator=(Function&&) =delete;
+
+		~Function() =default;
+
+		[[nodiscard]]
+		const ProcedureStatementNode& node() const noexcept
+		{
+			return m_node;
+		}
+
+	private:
+		const ProcedureStatementNode& m_node;
+		std::shared_ptr<Environment> m_env;
+	};
+
 	class Interpreter
 	{
 	public:
@@ -220,8 +250,10 @@ namespace stone
 		[[nodiscard]]
 		std::any evaluate(const ProcedureStatementNode& node, const std::shared_ptr<Environment>& env)
 		{
-			(void)env;
-			throw EvaluateException {node.lineNumber(), u8"not implemented"};
+			const auto function = std::make_shared<Function>(node, env);
+			env->put(node.name(), function);
+
+			return function;
 		}
 
 		[[nodiscard]]
@@ -289,7 +321,7 @@ namespace stone
 					if (const auto left = dynamic_cast<const IdentifierExpressionNode*>(&node.left()))
 					{
 						const auto right = dispatch(node.right(), env);
-						env->put(left->name(), right);
+						env->set(left->name(), right);
 
 						return right;
 					}
@@ -318,8 +350,27 @@ namespace stone
 		[[nodiscard]]
 		std::any evaluate(const CallExpressionNode& node, const std::shared_ptr<Environment>& env)
 		{
-			(void)env;
-			throw EvaluateException { node.lineNumber(), u8"not implemented" };
+			// callee.
+			const auto function = std::any_cast<std::shared_ptr<Function>>(dispatch(node.callee(), env));
+
+			// Push arguments.
+			const auto calleeEnv = std::make_shared<Environment>(env);
+
+			if (node.arguments().children().size() != function->node().parameters().children().size())
+			{
+				throw EvaluateException { node.lineNumber(), u8"invalid number of arguments." };
+			}
+
+			for (std::size_t i = 0; i < node.arguments().children().size(); i++)
+			{
+				const auto& parameter = static_cast<const ParameterNode&>(*function->node().parameters().children()[i]);
+				const auto& argument = *node.arguments().children()[i];
+				const auto value = dispatch(argument, env);
+
+				calleeEnv->put(parameter.name(), value);
+			}
+
+			return dispatch(function->node().body(), calleeEnv);
 		}
 
 		[[nodiscard]]
