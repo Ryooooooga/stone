@@ -42,9 +42,11 @@ int main()
 				}
 			}
 			c = counter()
-			c()
-			c()
-			c()
+			print(c())
+			print(c())
+			print(c())
+			print(c())
+			print(c())
 		)");
 
 		auto parser = std::make_unique<stone::Parser>(std::move(lexer));
@@ -53,7 +55,25 @@ int main()
 
 		stone::Printer {std::cout}.print(*ast);
 
-		fmt::print(u8"result: {}\n", std::any_cast<int>(stone::Interpreter {}.evaluate(*ast)));
+		const auto env = std::make_shared<stone::Environment>(nullptr);
+
+		env->put(u8"print", std::static_pointer_cast<stone::IFunction>(std::make_shared<stone::NativeFunction<std::any, std::any>>([](const std::any& value)
+			{
+				if (const auto p = std::any_cast<int>(&value))
+					fmt::print(u8"{}\n", *p);
+				else if (const auto p = std::any_cast<std::string>(&value))
+					fmt::print(u8"{}\n", *p);
+				else if (const auto p = std::any_cast<std::shared_ptr<stone::IFunction>>(&value))
+					fmt::print(u8"function\n");
+				else
+					fmt::print(u8"unknown type {}\n", value.type().name());
+
+				return value;
+			})));
+
+		const auto result = stone::Interpreter {}.evaluate(*ast, env);
+
+		fmt::print(u8"result: {}\n", std::any_cast<int>(result));
 	}
 	catch (const std::exception& e)
 	{

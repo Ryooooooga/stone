@@ -25,6 +25,7 @@
 #pragma once
 
 #include <any>
+#include <functional>
 #include <unordered_map>
 
 #include "Exception.hpp"
@@ -131,6 +132,50 @@ namespace stone
 		std::shared_ptr<Environment> m_env;
 	};
 
+	template <typename Return, typename... Parameters>
+	class NativeFunction
+		: public IFunction
+	{
+	public:
+		explicit NativeFunction(const std::function<Return(Parameters...)>& function)
+			: m_function(function)
+		{
+		}
+
+		std::any invoke([[maybe_unused]] Interpreter& interpreter, const std::vector<std::any>& arguments) override
+		{
+			if (arguments.size() != sizeof...(Parameters))
+			{
+				throw EvaluateException { 0, u8"invalid number of arguments." };
+			}
+
+			return invoke_impl(arguments, std::index_sequence_for<Parameters...> {});
+		}
+
+	private:
+		template <std::size_t... Indices>
+		std::any invoke_impl(const std::vector<std::any>& arguments, std::index_sequence<Indices...>)
+		{
+			return m_function(unpack<std::remove_cv_t<std::remove_reference_t<Parameters>>>(arguments[Indices])...);
+		}
+
+		template <typename T>
+		static std::any unpack(const std::any& value)
+		{
+			if constexpr (std::is_same_v<T, std::any>)
+			{
+				return value;
+			}
+			else
+			{
+				assert(value.type() == typeid(T));
+				return std::any_cast<T>(value);
+			}
+		}
+
+		std::function<Return(Parameters...)> m_function;
+	};
+
 	class Interpreter
 	{
 	public:
@@ -146,11 +191,16 @@ namespace stone
 		~Interpreter() =default;
 
 		[[nodiscard]]
-		std::any evaluate(const ProgramNode& node)
+		std::any evaluate(const ProgramNode& node, const std::shared_ptr<Environment>& env = std::make_shared<Environment>(nullptr))
 		{
-			const auto env = std::make_shared<Environment>();
+			std::any last;
 
-			return evaluate(node, env);
+			for (const auto& child : node.children())
+			{
+				last = dispatch(*child, env);
+			}
+
+			return last;
 		}
 
 	private:
@@ -182,19 +232,6 @@ namespace stone
 #include "Node.def.hpp"
 
 			throw EvaluateException { node.lineNumber(), u8"unknown node type." };
-		}
-
-		[[nodiscard]]
-		std::any evaluate(const ProgramNode& node, const std::shared_ptr<Environment>& env)
-		{
-			std::any last;
-
-			for (const auto& child : node.children())
-			{
-				last = dispatch(*child, env);
-			}
-
-			return last;
 		}
 
 		[[nodiscard]]
