@@ -32,6 +32,8 @@
 
 namespace stone
 {
+	class Interpreter;
+
 	class Environment
 	{
 	public:
@@ -89,45 +91,41 @@ namespace stone
 		std::unordered_map<std::string_view, std::any> m_table;
 	};
 
-	class Function
+	class IFunction
 	{
 	public:
-		explicit Function(const ParameterListNode& parameters, const StatementNode& body, const std::shared_ptr<Environment>& env)
-			: m_parameters(parameters)
+		IFunction() =default;
+
+
+		// Uncopyable, unmovable.
+		IFunction(const IFunction&) =delete;
+		IFunction(IFunction&&) =delete;
+
+		IFunction& operator=(const IFunction&) =delete;
+		IFunction& operator=(IFunction&&) =delete;
+
+		virtual ~IFunction() =default;
+
+		virtual std::any invoke(Interpreter& interpreter, const std::vector<std::any>& arguments) =0;
+	};
+
+	class StoneFunction
+		: public IFunction
+	{
+	public:
+		explicit StoneFunction(std::size_t line, const ParameterListNode& parameters, const StatementNode& body, const std::shared_ptr<Environment>& env)
+			: m_line(line)
+			, m_parameters(parameters)
 			, m_body(body)
 			, m_env(env)
 		{
 			assert(m_env);
 		}
 
-		// Uncopyable, unmovable.
-		Function(const Function&) =delete;
-		Function(Function&&) =delete;
-
-		Function& operator=(const Function&) =delete;
-		Function& operator=(Function&&) =delete;
-
-		~Function() =default;
-
-		[[nodiscard]]
-		const ParameterListNode& parameters() const noexcept
-		{
-			return m_parameters;
-		}
-
-		[[nodiscard]]
-		const StatementNode& body() const noexcept
-		{
-			return m_body;
-		}
-
-		[[nodiscard]]
-		std::shared_ptr<Environment> env() const noexcept
-		{
-			return m_env;
-		}
+		std::any invoke(Interpreter& interpreter, const std::vector<std::any>& arguments) override;
 
 	private:
+		std::size_t m_line;
 		const ParameterListNode& m_parameters;
 		const StatementNode& m_body;
 		std::shared_ptr<Environment> m_env;
@@ -156,11 +154,11 @@ namespace stone
 		}
 
 	private:
+		friend class StoneFunction;
+
 		[[nodiscard]]
 		static int asInteger(const std::any& value)
 		{
-			assert(value.type() == typeid(int));
-
 			return std::any_cast<int>(value);
 		}
 
@@ -261,7 +259,7 @@ namespace stone
 		[[nodiscard]]
 		std::any evaluate(const ProcedureStatementNode& node, const std::shared_ptr<Environment>& env)
 		{
-			const auto function = std::make_shared<Function>(node.parameters(), node.body(), env);
+			const std::shared_ptr<IFunction> function = std::make_shared<StoneFunction>(node.lineNumber(), node.parameters(), node.body(), env);
 			env->put(node.name(), function);
 
 			return function;
@@ -361,33 +359,25 @@ namespace stone
 		[[nodiscard]]
 		std::any evaluate(const CallExpressionNode& node, const std::shared_ptr<Environment>& env)
 		{
-			// callee.
-			const auto function = std::any_cast<std::shared_ptr<Function>>(dispatch(node.callee(), env));
+			// callee
+			const auto function = std::any_cast<std::shared_ptr<IFunction>>(dispatch(node.callee(), env));
 
-			// Push arguments.
-			const auto calleeEnv = std::make_shared<Environment>(function->env());
+			// arguments
+			std::vector<std::any> arguments;
+			arguments.reserve(node.arguments().children().size());
 
-			if (node.arguments().children().size() != function->parameters().children().size())
+			for (const auto& arg : node.arguments().children())
 			{
-				throw EvaluateException { node.lineNumber(), u8"invalid number of arguments." };
+				arguments.emplace_back(dispatch(*arg, env));
 			}
 
-			for (std::size_t i = 0; i < node.arguments().children().size(); i++)
-			{
-				const auto& parameter = static_cast<const ParameterNode&>(*function->parameters().children()[i]);
-				const auto& argument = *node.arguments().children()[i];
-				const auto value = dispatch(argument, env);
-
-				calleeEnv->put(parameter.name(), value);
-			}
-
-			return dispatch(function->body(), calleeEnv);
+			return function->invoke(*this, arguments);
 		}
 
 		[[nodiscard]]
 		std::any evaluate(const ClosureExpressionNode& node, const std::shared_ptr<Environment>& env)
 		{
-			const auto function = std::make_shared<Function>(node.parameters(), node.body(), env);
+			const std::shared_ptr<IFunction> function = std::make_shared<StoneFunction>(node.lineNumber(), node.parameters(), node.body(), env);
 
 			return function;
 		}
@@ -410,4 +400,24 @@ namespace stone
 			return node.value();
 		}
 	};
+
+	inline std::any StoneFunction::invoke(Interpreter& interpreter, const std::vector<std::any>& arguments)
+	{
+		// Push arguments.
+		const auto calleeEnv = std::make_shared<Environment>(m_env);
+
+		if (arguments.size() != m_parameters.children().size())
+		{
+			throw EvaluateException { m_line, u8"invalid number of arguments." };
+		}
+
+		for (std::size_t i = 0; i < arguments.size(); i++)
+		{
+			const auto& parameter = static_cast<const ParameterNode&>(*m_parameters.children()[i]);
+
+			calleeEnv->put(parameter.name(), arguments[i]);
+		}
+
+		return interpreter.dispatch(m_body, calleeEnv);
+	}
 }
