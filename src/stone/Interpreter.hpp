@@ -92,8 +92,9 @@ namespace stone
 	class Function
 	{
 	public:
-		explicit Function(const ProcedureStatementNode& node, const std::shared_ptr<Environment>& env)
-			: m_node(node)
+		explicit Function(const ParameterListNode& parameters, const StatementNode& body, const std::shared_ptr<Environment>& env)
+			: m_parameters(parameters)
+			, m_body(body)
 			, m_env(env)
 		{
 			assert(m_env);
@@ -109,13 +110,26 @@ namespace stone
 		~Function() =default;
 
 		[[nodiscard]]
-		const ProcedureStatementNode& node() const noexcept
+		const ParameterListNode& parameters() const noexcept
 		{
-			return m_node;
+			return m_parameters;
+		}
+
+		[[nodiscard]]
+		const StatementNode& body() const noexcept
+		{
+			return m_body;
+		}
+
+		[[nodiscard]]
+		std::shared_ptr<Environment> env() const noexcept
+		{
+			return m_env;
 		}
 
 	private:
-		const ProcedureStatementNode& m_node;
+		const ParameterListNode& m_parameters;
+		const StatementNode& m_body;
 		std::shared_ptr<Environment> m_env;
 	};
 
@@ -186,24 +200,21 @@ namespace stone
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const ParameterNode& node, const std::shared_ptr<Environment>& env)
+		std::any evaluate([[maybe_unused]] const ParameterNode& node, [[maybe_unused]] const std::shared_ptr<Environment>& env)
 		{
-			(void)env;
-			throw EvaluateException { node.lineNumber(), u8"not implemented" };
+			assert(0 && "never reached");
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const ParameterListNode& node, const std::shared_ptr<Environment>& env)
+		std::any evaluate([[maybe_unused]] const ParameterListNode& node, [[maybe_unused]] const std::shared_ptr<Environment>& env)
 		{
-			(void)env;
-			throw EvaluateException { node.lineNumber(), u8"not implemented" };
+			assert(0 && "never reached");
 		}
 
 		[[nodiscard]]
-		std::any evaluate(const ArgumentListNode& node, const std::shared_ptr<Environment>& env)
+		std::any evaluate([[maybe_unused]] const ArgumentListNode& node, [[maybe_unused]] const std::shared_ptr<Environment>& env)
 		{
-			(void)env;
-			throw EvaluateException { node.lineNumber(), u8"not implemented" };
+			assert(0 && "never reached");
 		}
 
 		[[nodiscard]]
@@ -250,7 +261,7 @@ namespace stone
 		[[nodiscard]]
 		std::any evaluate(const ProcedureStatementNode& node, const std::shared_ptr<Environment>& env)
 		{
-			const auto function = std::make_shared<Function>(node, env);
+			const auto function = std::make_shared<Function>(node.parameters(), node.body(), env);
 			env->put(node.name(), function);
 
 			return function;
@@ -354,23 +365,31 @@ namespace stone
 			const auto function = std::any_cast<std::shared_ptr<Function>>(dispatch(node.callee(), env));
 
 			// Push arguments.
-			const auto calleeEnv = std::make_shared<Environment>(env);
+			const auto calleeEnv = std::make_shared<Environment>(function->env());
 
-			if (node.arguments().children().size() != function->node().parameters().children().size())
+			if (node.arguments().children().size() != function->parameters().children().size())
 			{
 				throw EvaluateException { node.lineNumber(), u8"invalid number of arguments." };
 			}
 
 			for (std::size_t i = 0; i < node.arguments().children().size(); i++)
 			{
-				const auto& parameter = static_cast<const ParameterNode&>(*function->node().parameters().children()[i]);
+				const auto& parameter = static_cast<const ParameterNode&>(*function->parameters().children()[i]);
 				const auto& argument = *node.arguments().children()[i];
 				const auto value = dispatch(argument, env);
 
 				calleeEnv->put(parameter.name(), value);
 			}
 
-			return dispatch(function->node().body(), calleeEnv);
+			return dispatch(function->body(), calleeEnv);
+		}
+
+		[[nodiscard]]
+		std::any evaluate(const ClosureExpressionNode& node, const std::shared_ptr<Environment>& env)
+		{
+			const auto function = std::make_shared<Function>(node.parameters(), node.body(), env);
+
+			return function;
 		}
 
 		[[nodiscard]]

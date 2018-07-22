@@ -478,6 +478,45 @@ namespace stone
 		}
 	};
 
+	class ClosureExpressionNode
+		: public ExpressionNode
+	{
+	public:
+		explicit ClosureExpressionNode(std::size_t lineNumber, std::unique_ptr<ParameterListNode>&& parameters, std::unique_ptr<StatementNode>&& body)
+			: ExpressionNode(lineNumber)
+		{
+			assert(parameters);
+			assert(body);
+
+			addChild(std::move(parameters));
+			addChild(std::move(body));
+		}
+
+		[[nodiscard]]
+		ParameterListNode& parameters() noexcept
+		{
+			return static_cast<ParameterListNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		const ParameterListNode& parameters() const noexcept
+		{
+			return static_cast<ParameterListNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		StatementNode& body() noexcept
+		{
+			return static_cast<StatementNode&>(*children()[1]);
+		}
+
+		[[nodiscard]]
+		const StatementNode& body() const noexcept
+		{
+			return static_cast<StatementNode&>(*children()[1]);
+		}
+	};
+
 	class IdentifierExpressionNode
 		: public ExpressionNode
 	{

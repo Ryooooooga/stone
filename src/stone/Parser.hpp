@@ -459,6 +459,7 @@ namespace stone
 
 		// primary-expression:
 		//     paren-expression
+		//     closure-expression
 		//     identifier-expression
 		//     integer-expression
 		//     string-expression
@@ -470,6 +471,10 @@ namespace stone
 				case TokenKind::leftParen:
 					// paren-expression
 					return parseParenExpression();
+
+				case TokenKind::keyword_fun:
+					// closure-expression
+					return parseClosureExpression();
 
 				case TokenKind::identifier:
 					// identifier-expression
@@ -503,6 +508,23 @@ namespace stone
 			matchToken(TokenKind::rightParen);
 
 			return expression;
+		}
+
+		// closure-expression:
+		//     'fun' parameter-list compound-statement
+		[[nodiscard]]
+		std::unique_ptr<ExpressionNode> parseClosureExpression()
+		{
+			// 'fun'
+			const auto token = matchToken(TokenKind::keyword_fun);
+
+			// parameter-list
+			auto parameters = parseParameterList();
+
+			// compound-statement
+			auto body = parseCompoundStatement();
+
+			return std::make_unique<ClosureExpressionNode>(token->lineNumber(), std::move(parameters), std::move(body));
 		}
 
 		// identifier-expression:

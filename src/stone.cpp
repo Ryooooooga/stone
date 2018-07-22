@@ -35,15 +35,16 @@ int main()
 	try
 	{
 		auto lexer = std::make_unique<stone::Lexer>(u8R"(
-			def fact(n) {
-				f = 1
-				while n > 0 {
-					f = f * n
-					n = n - 1
+			def counter() {
+				cnt = 0
+				fun() {
+					cnt = cnt + 1
 				}
-				f
 			}
-			fact(6)
+			c = counter()
+			c()
+			c()
+			c()
 		)");
 
 		auto parser = std::make_unique<stone::Parser>(std::move(lexer));

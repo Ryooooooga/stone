@@ -55,6 +55,7 @@ STONE_STATEMENT_NODE(ProcedureStatementNode, ("{class} {name}", u8"name"_a=this-
 STONE_EXPRESSION_NODE(BinaryExpressionNode, ("{class} {operator}", u8"operator"_a=this->operation()))
 STONE_EXPRESSION_NODE(UnaryExpressionNode, ("{class} {operator}", u8"operator"_a=this->operation()))
 STONE_EXPRESSION_NODE(CallExpressionNode, ("{class}"))
+STONE_EXPRESSION_NODE(ClosureExpressionNode, ("{class}"))
 STONE_EXPRESSION_NODE(IdentifierExpressionNode, ("{class} {name}", u8"name"_a=this->name()))
 STONE_EXPRESSION_NODE(IntegerExpressionNode, ("{class} {value}", u8"value"_a=this->value()))
 STONE_EXPRESSION_NODE(StringExpressionNode, ("{class} {value}", u8"value"_a=this->value()))
