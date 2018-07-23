@@ -75,13 +75,13 @@ namespace stone
 		}
 
 		[[nodiscard]]
-		std::shared_ptr<StoneObject> get(std::string_view name)
+		std::shared_ptr<StoneObject> get(std::string_view name, bool recursive = true)
 		{
 			if (const auto it = m_table.find(name); it != std::cend(m_table))
 			{
 				return it->second;
 			}
-			else if (m_parent)
+			else if (recursive && m_parent)
 			{
 				return m_parent->get(name);
 			}
@@ -133,6 +133,16 @@ namespace stone
 		virtual std::shared_ptr<StoneObject> invoke([[maybe_unused]] Interpreter& interpreter, [[maybe_unused]] const std::vector<std::shared_ptr<StoneObject>>& arguments)
 		{
 			throw EvaluateException { 0, u8"value is not a function." };
+		}
+
+		virtual std::shared_ptr<StoneObject> getMember([[maybe_unused]] Interpreter& interpreter, std::string_view memberName)
+		{
+			throw EvaluateException { 0, fmt::format(u8"invalid member name `{}'.", memberName) };
+		}
+
+		virtual void setMember([[maybe_unused]] Interpreter& interpreter, std::string_view memberName, [[maybe_unused]] const std::shared_ptr<StoneObject>& value)
+		{
+			throw EvaluateException { 0, fmt::format(u8"invalid member assignment `{}'.", memberName) };
 		}
 	};
 
@@ -276,25 +286,74 @@ namespace stone
 		std::function<Return(Parameters...)> m_function;
 	};
 
+	class InstanceObject
+		: public StoneObject
+		, public std::enable_shared_from_this<InstanceObject>
+	{
+	public:
+		static std::shared_ptr<InstanceObject> create(const std::shared_ptr<Environment>& outerEnv)
+		{
+			assert(outerEnv);
+
+			struct Helper : InstanceObject {};
+			const auto p = std::make_shared<Helper>();
+			p->initialize(outerEnv);
+
+			return p;
+		}
+
+		std::shared_ptr<StoneObject> getMember(Interpreter& interpreter, std::string_view memberName) override
+		{
+			if (const auto member = m_env->get(memberName, false))
+			{
+				return member;
+			}
+
+			return StoneObject::getMember(interpreter, memberName);
+		}
+
+		void setMember([[maybe_unused]] Interpreter& interpreter, std::string_view memberName, const std::shared_ptr<StoneObject>& value) override
+		{
+			m_env->put(memberName, value);
+		}
+
+	private:
+		friend class ClassObject;
+
+		InstanceObject() =default;
+
+		void initialize(const std::shared_ptr<Environment>& outerEnv)
+		{
+			m_env = std::make_shared<Environment>(outerEnv);
+			m_env->put(u8"this", shared_from_this());
+		}
+
+		std::shared_ptr<Environment> m_env;
+	};
+
 	class ClassObject
 		: public StoneObject
 	{
 	public:
-		explicit ClassObject(const ClassStatementNode& node, const std::shared_ptr<Environment>& env)
+		explicit ClassObject(const ClassStatementNode& node, const std::shared_ptr<Environment>& env, const std::shared_ptr<ClassObject>& superClass)
 			: m_node(node)
 			, m_env(env)
+			, m_superClass(superClass)
 		{
 			assert(m_env);
 		}
 
-		std::string asString()
+		std::string asString() override
 		{
 			return fmt::format(u8"[class {}]", m_node.name());
 		}
 
+		std::shared_ptr<StoneObject> getMember(Interpreter& interpreter, std::string_view memberName) override;
+
 	private:
 		const ClassStatementNode& m_node;
 		std::shared_ptr<Environment> m_env;
+		std::shared_ptr<ClassObject> m_superClass;
 	};
 
 	class Interpreter
@@ -326,8 +385,8 @@ namespace stone
 
 	private:
 		friend class StoneFunctionObject;
+		friend class ClassObject;
 
-		[[nodiscard]]
 		std::shared_ptr<StoneObject> dispatch(const Node& node, const std::shared_ptr<Environment>& env)
 		{
 #define STONE_NODE(_name, _format)                                \
@@ -409,7 +468,21 @@ namespace stone
 		[[nodiscard]]
 		std::shared_ptr<StoneObject> evaluate(const ClassStatementNode& node, const std::shared_ptr<Environment>& env)
 		{
-			const auto classObject = std::make_shared<ClassObject>(node, env);
+			const auto superClass = node.superName() ? env->get(*node.superName()) : nullptr;
+
+			if (node.superName())
+			{
+				if (superClass == nullptr)
+				{
+					throw EvaluateException { node.lineNumber(), fmt::format(u8"unknown super class `{}'.", *node.superName()) };
+				}
+				if (std::dynamic_pointer_cast<InstanceObject>(superClass) == nullptr)
+				{
+					throw EvaluateException { node.lineNumber(), fmt::format(u8"`{}' is not a class.", *node.superName()) };
+				}
+			}
+
+			const auto classObject = std::make_shared<ClassObject>(node, env, std::static_pointer_cast<ClassObject>(superClass));
 			env->put(node.name(), classObject);
 
 			return classObject;
@@ -484,6 +557,15 @@ namespace stone
 
 						return right;
 					}
+					if (const auto left = dynamic_cast<const MemberAccessExpressionNode*>(&node.left()))
+					{
+						const auto right = dispatch(node.right(), env);
+						const auto operand = dispatch(left->operand(), env);
+
+						operand->setMember(*this, left->memberName(), right);
+
+						return right;
+					}
 
 					throw EvaluateException { node.lineNumber(), u8"invalid assignment." };
 				}
@@ -527,8 +609,9 @@ namespace stone
 		[[nodiscard]]
 		std::shared_ptr<StoneObject> evaluate(const MemberAccessExpressionNode& node, const std::shared_ptr<Environment>& env)
 		{
-			(void)env;
-			throw EvaluateException{node.lineNumber(), "not implemented member"};
+			const auto operand = dispatch(node.operand(), env);
+
+			return operand->getMember(*this, node.memberName());
 		}
 
 		[[nodiscard]]
@@ -574,5 +657,21 @@ namespace stone
 		}
 
 		return interpreter.dispatch(m_body, calleeEnv);
+	}
+
+	inline std::shared_ptr<StoneObject> ClassObject::getMember(Interpreter& interpreter, std::string_view memberName)
+	{
+		if (memberName == u8"new")
+		{
+			const auto object = m_superClass
+				? std::static_pointer_cast<InstanceObject>(m_superClass->getMember(interpreter, memberName))
+				: InstanceObject::create(m_env);
+
+			interpreter.dispatch(m_node.body(), object->m_env);
+
+			return object;
+		}
+
+		return StoneObject::getMember(interpreter, memberName);
 	}
 }
