@@ -433,6 +433,7 @@ namespace stone
 		//     primary-expression postfix
 		// postfix:
 		//     call-expression-postfix
+		//     array-index-expression-postfix
 		//     member-access-expression-postfix
 		[[nodiscard]]
 		std::unique_ptr<ExpressionNode> parsePostfixExpression()
@@ -450,7 +451,13 @@ namespace stone
 						operand = parseCallExpressionPostfix(std::move(operand));
 						break;
 
+					case TokenKind::leftBracket:
+						// array-index-expression-postfix
+						operand = parseArrayIndexExpressionPostfix(std::move(operand));
+						break;
+
 					case TokenKind::period:
+						// member-access-expression-postfix
 						operand = parseMemberAccessPostfix(std::move(operand));
 						break;
 
@@ -490,6 +497,23 @@ namespace stone
 			return std::make_unique<CallExpressionNode>(operand->lineNumber(), std::move(operand), std::move(arguments));
 		}
 
+		// array-index-expression-postfix:
+		//     '[' expression ']'
+		[[nodiscard]]
+		std::unique_ptr<ExpressionNode> parseArrayIndexExpressionPostfix(std::unique_ptr<ExpressionNode>&& operand)
+		{
+			// '['
+			const auto token = matchToken(TokenKind::leftBracket);
+
+			// expression
+			auto index = parseExpression();
+
+			// ']'
+			matchToken(TokenKind::rightBracket);
+
+			return std::make_unique<ArrayIndexExpressionNode>(token->lineNumber(), std::move(operand), std::move(index));
+		}
+
 		// member-access-expression-postfix:
 		//     '.' identifier
 		[[nodiscard]]
@@ -507,6 +531,7 @@ namespace stone
 		// primary-expression:
 		//     paren-expression
 		//     closure-expression
+		//     array-expression
 		//     identifier-expression
 		//     integer-expression
 		//     string-expression
@@ -522,6 +547,10 @@ namespace stone
 				case TokenKind::keyword_fun:
 					// closure-expression
 					return parseClosureExpression();
+
+				case TokenKind::leftBracket:
+					// array-expression
+					return parseArrayExpression();
 
 				case TokenKind::identifier:
 					// identifier-expression
@@ -572,6 +601,36 @@ namespace stone
 			auto body = parseCompoundStatement();
 
 			return std::make_unique<ClosureExpressionNode>(token->lineNumber(), std::move(parameters), std::move(body));
+		}
+
+		// array-expression:
+		//     '[' ']'
+		//     '[' expression (',' expression)* ']'
+		[[nodiscard]]
+		std::unique_ptr<ExpressionNode> parseArrayExpression()
+		{
+			// '['
+			const auto token = matchToken(TokenKind::leftBracket);
+
+			auto node = std::make_unique<ArrayExpressionNode>(token->lineNumber());
+
+			// (expression (',' expression)*)?
+			if (peekToken()->kind() != TokenKind::rightBracket)
+			{
+				// expression
+				node->addChild(parseExpression());
+
+				// (',' expression)*
+				while (consumeTokenIf(TokenKind::comma))
+				{
+					node->addChild(parseExpression());
+				}
+			}
+
+			// ']'
+			matchToken(TokenKind::rightBracket);
+
+			return node;
 		}
 
 		// identifier-expression:

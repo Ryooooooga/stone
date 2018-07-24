@@ -35,37 +35,12 @@ int main()
 	try
 	{
 		auto lexer = std::make_unique<stone::Lexer>(u8R"(
-			class Position {
-				x = y = 0
-				def move(_x, _y) {
-					x = _x; y = _y
-				}
-			}
-			p = Position.new
-			print(p.x) // 0
-			print(p.y) // 0
-			p.move(3, 4)
-			print(p.x) // 3
-			print(p.y) // 4
-			p.x = 10
-			print(p.x) // 10
-			print(p.y) // 4
-
-			class Pos3D extends Position {
-				z = 0
-				def set(_x, _y, _z) {
-					x = _x; y = _y; z = _z
-				}
-			}
-			p = Pos3D.new
-			p.move(3, 4)
-			print(p.x) // 3
-			print(p.y) // 4
-			print(p.z) // 0
-			p.set(5, 6, 7)
-			print(p.x) // 5
-			print(p.y) // 6
-			print(p.z) // 7
+			a = [2, 3, 4]
+			print(a[1]) // 3
+			a[1] = "three"
+			print("a[1]: " + a[1])
+			b = [["one", 1], ["two", 2]]
+			print(b[1][0] + ": " + b[1][1])
 		)");
 
 		auto parser = std::make_unique<stone::Parser>(std::move(lexer));

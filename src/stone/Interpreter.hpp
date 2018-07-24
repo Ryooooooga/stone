@@ -614,6 +614,12 @@ namespace stone
 		}
 
 		[[nodiscard]]
+		std::shared_ptr<StoneObject> evaluate(const ArrayIndexExpressionNode& node, const std::shared_ptr<Environment>& env)
+		{
+			throw EvaluateException {node.lineNumber(), "not implemented"};(void)env;
+		}
+
+		[[nodiscard]]
 		std::shared_ptr<StoneObject> evaluate(const MemberAccessExpressionNode& node, const std::shared_ptr<Environment>& env)
 		{
 			const auto operand = dispatch(node.operand(), env);
@@ -625,6 +631,12 @@ namespace stone
 		std::shared_ptr<StoneObject> evaluate(const ClosureExpressionNode& node, const std::shared_ptr<Environment>& env)
 		{
 			return std::make_shared<StoneFunctionObject>(node.lineNumber(), node.parameters(), node.body(), env);
+		}
+
+		[[nodiscard]]
+		std::shared_ptr<StoneObject> evaluate(const ArrayExpressionNode& node, const std::shared_ptr<Environment>& env)
+		{
+			throw EvaluateException {node.lineNumber(), "not implemented"};(void)env;
 		}
 
 		[[nodiscard]]

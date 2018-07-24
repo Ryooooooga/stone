@@ -521,6 +521,45 @@ namespace stone
 		}
 	};
 
+	class ArrayIndexExpressionNode
+		: public ExpressionNode
+	{
+	public:
+		explicit ArrayIndexExpressionNode(std::size_t lineNumber, std::unique_ptr<ExpressionNode>&& operand, std::unique_ptr<ExpressionNode>&& index)
+			: ExpressionNode(lineNumber)
+		{
+			assert(operand);
+			assert(index);
+
+			addChild(std::move(operand));
+			addChild(std::move(index));
+		}
+
+		[[nodiscard]]
+		ExpressionNode& operand() noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		const ExpressionNode& operand() const noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[0]);
+		}
+
+		[[nodiscard]]
+		ExpressionNode& index() noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[1]);
+		}
+
+		[[nodiscard]]
+		const ExpressionNode& index() const noexcept
+		{
+			return static_cast<ExpressionNode&>(*children()[1]);
+		}
+	};
+
 	class MemberAccessExpressionNode
 		: public ExpressionNode
 	{
@@ -592,6 +631,23 @@ namespace stone
 		const StatementNode& body() const noexcept
 		{
 			return static_cast<StatementNode&>(*children()[1]);
+		}
+	};
+
+	class ArrayExpressionNode
+		: public ExpressionNode
+	{
+	public:
+		explicit ArrayExpressionNode(std::size_t lineNumber)
+			: ExpressionNode(lineNumber)
+		{
+		}
+
+		void addChild(std::unique_ptr<ExpressionNode>&& expression)
+		{
+			assert(expression);
+
+			Node::addChild(std::move(expression));
 		}
 	};
 
