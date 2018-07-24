@@ -468,19 +468,26 @@ namespace stone
 		[[nodiscard]]
 		std::shared_ptr<StoneObject> evaluate(const ClassStatementNode& node, const std::shared_ptr<Environment>& env)
 		{
-			const auto superClass = node.superName() ? env->get(*node.superName()) : nullptr;
-
-			if (node.superName())
+			const auto superClass = [&]()
 			{
+				if (!node.superName())
+				{
+					return std::shared_ptr<ClassObject> {nullptr};
+				}
+
+				const auto superClass = env->get(*node.superName());
+
 				if (superClass == nullptr)
 				{
 					throw EvaluateException { node.lineNumber(), fmt::format(u8"unknown super class `{}'.", *node.superName()) };
 				}
-				if (std::dynamic_pointer_cast<InstanceObject>(superClass) == nullptr)
+				if (std::dynamic_pointer_cast<ClassObject>(superClass) == nullptr)
 				{
 					throw EvaluateException { node.lineNumber(), fmt::format(u8"`{}' is not a class.", *node.superName()) };
 				}
-			}
+
+				return std::static_pointer_cast<ClassObject>(superClass);
+			}();
 
 			const auto classObject = std::make_shared<ClassObject>(node, env, std::static_pointer_cast<ClassObject>(superClass));
 			env->put(node.name(), classObject);

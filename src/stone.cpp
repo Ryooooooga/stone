@@ -42,7 +42,11 @@ int main()
 				}
 			}
 			p = Position.new
+			print(p.x) // 0
+			print(p.y) // 0
 			p.move(3, 4)
+			print(p.x) // 3
+			print(p.y) // 4
 			p.x = 10
 			print(p.x) // 10
 			print(p.y) // 4
