@@ -549,7 +549,7 @@ namespace stone
 					const auto left = dispatch(node.left(), env);
 					const auto right = dispatch(node.right(), env);
 
-					if (left->isInteger() || right->isInteger())
+					if (left->isInteger() && right->isInteger())
 						return std::make_shared<IntegerObject>(left->asInteger() + right->asInteger());
 					else
 						return std::make_shared<StringObject>(left->asString() + right->asString());
