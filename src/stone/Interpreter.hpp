@@ -144,6 +144,16 @@ namespace stone
 		{
 			throw EvaluateException { 0, fmt::format(u8"invalid member assignment `{}'.", memberName) };
 		}
+
+		virtual std::shared_ptr<StoneObject> getIndexed([[maybe_unused]] Interpreter& interpreter, [[maybe_unused]] const std::shared_ptr<StoneObject>& index)
+		{
+			throw EvaluateException { 0, fmt::format(u8"invalid index access.") };
+		}
+
+		virtual void setIndexed([[maybe_unused]] Interpreter& interpreter, [[maybe_unused]] const std::shared_ptr<StoneObject>& index, [[maybe_unused]] const std::shared_ptr<StoneObject>& value)
+		{
+			throw EvaluateException { 0, fmt::format(u8"invalid index assignment.") };
+		}
 	};
 
 	class IntegerObject
@@ -154,15 +164,6 @@ namespace stone
 			: m_value(value)
 		{
 		}
-
-		// Uncopyable, unmovable.
-		IntegerObject(const IntegerObject&) =delete;
-		IntegerObject(IntegerObject&&) =delete;
-
-		IntegerObject& operator=(const IntegerObject&) =delete;
-		IntegerObject& operator=(IntegerObject&&) =delete;
-
-		virtual ~IntegerObject() =default;
 
 		[[nodiscard]]
 		bool isInteger() const override
@@ -192,15 +193,6 @@ namespace stone
 			: m_value(value)
 		{
 		}
-
-		// Uncopyable, unmovable.
-		StringObject(const StringObject&) =delete;
-		StringObject(StringObject&&) =delete;
-
-		StringObject& operator=(const StringObject&) =delete;
-		StringObject& operator=(StringObject&&) =delete;
-
-		virtual ~StringObject() =default;
 
 		[[nodiscard]]
 		bool isString() const override
@@ -354,6 +346,58 @@ namespace stone
 		const ClassStatementNode& m_node;
 		std::shared_ptr<Environment> m_env;
 		std::shared_ptr<ClassObject> m_superClass;
+	};
+
+	class ArrayObject
+		: public StoneObject
+	{
+	public:
+		explicit ArrayObject(std::vector<std::shared_ptr<StoneObject>>&& elements)
+			: m_elements(elements)
+		{
+		}
+
+		std::string asString() override
+		{
+			auto s = std::string {};
+			auto delim = u8"[";
+
+			for (const auto& element : m_elements)
+			{
+				s += delim;
+				s += element->asString();
+
+				delim = u8", ";
+			}
+
+			s += u8"]";
+
+			return s;
+		}
+
+		std::shared_ptr<StoneObject> getIndexed([[maybe_unused]] Interpreter& interpreter, const std::shared_ptr<StoneObject>& index) override
+		{
+			if (const auto n = static_cast<std::size_t>(index->asInteger()); n < m_elements.size())
+			{
+				return m_elements[n];
+			}
+
+			throw EvaluateException { 0, u8"array index out of bounds." };
+		}
+
+		void setIndexed([[maybe_unused]] Interpreter& interpreter, const std::shared_ptr<StoneObject>& index, const std::shared_ptr<StoneObject>& value) override
+		{
+			if (const auto n = static_cast<std::size_t>(index->asInteger()); n < m_elements.size())
+			{
+				m_elements[n] = value;
+				return;
+			}
+
+			throw EvaluateException { 0, u8"array index out of bounds." };
+		}
+
+	private:
+		std::vector<std::shared_ptr<StoneObject>> m_elements;
 	};
 
 	class Interpreter
@@ -573,6 +617,16 @@ namespace stone
 
 						return right;
 					}
+					if (const auto left = dynamic_cast<const ArrayIndexExpressionNode*>(&node.left()))
+					{
+						const auto right = dispatch(node.right(), env);
+						const auto index = dispatch(left->index(), env);
+						const auto operand = dispatch(left->operand(), env);
+
+						operand->setIndexed(*this, index, right);
+
+						return right;
+					}
 
 					throw EvaluateException { node.lineNumber(), u8"invalid assignment." };
 				}
@@ -616,7 +670,13 @@ namespace stone
 		[[nodiscard]]
 		std::shared_ptr<StoneObject> evaluate(const ArrayIndexExpressionNode& node, const std::shared_ptr<Environment>& env)
 		{
-			throw EvaluateException {node.lineNumber(), "not implemented"};(void)env;
+			// index
+			const auto index = dispatch(node.index(), env);
+
+			// operand
+			const auto operand = dispatch(node.operand(), env);
+
+			return operand->getIndexed(*this, index);
 		}
 
 		[[nodiscard]]
@@ -636,7 +696,16 @@ namespace stone
 		[[nodiscard]]
 		std::shared_ptr<StoneObject> evaluate(const ArrayExpressionNode& node, const std::shared_ptr<Environment>& env)
 		{
-			throw EvaluateException {node.lineNumber(), "not implemented"};(void)env;
+			// elements
+			std::vector<std::shared_ptr<StoneObject>> elements;
+			elements.reserve(node.children().size());
+
+			for (const auto& element : node.children())
+			{
+				elements.emplace_back(dispatch(*element, env));
+			}
+
+			return std::make_shared<ArrayObject>(std::move(elements));
 		}
 
 		[[nodiscard]]
